@@ -1,205 +1,104 @@
 import aiohttp
 import feedparser
 import logging
-from typing import List, Dict
-from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
 
 class TrendScraper:
-    """Сбор трендов из различных источников"""
-    
-    async def get_reddit_trends(self, subreddit: str = "blender") -> List[Dict]:
-        """
-        Получение трендов из Reddit через RSS
+    async def get_all_trends(self):
+        result = "🔍 СОБРАННЫЕ ТРЕНДЫ:\n\n"
         
-        Args:
-            subreddit: Название сабреддита
-        
-        Returns:
-            Список словарей с постами
-        """
+        # Reddit через RSS
         try:
-            url = f"https://www.reddit.com/r/{subreddit}/hot.rss"
-            
+            url = "https://www.reddit.com/r/blender/hot.rss"
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
                     if response.status == 200:
                         content = await response.text()
                         feed = feedparser.parse(content)
-                        
-                        posts = []
-                        for entry in feed.entries[:5]:
-                            posts.append({
-                                "title": entry.title,
-                                "link": entry.link,
-                                "source": "Reddit"
-                            })
-                        return posts
+                        if feed.entries:
+                            result += "📱 REDDIT r/blender:\n"
+                            for i, entry in enumerate(feed.entries[:5], 1):
+                                result += f"{i}. {entry.title}\n"
+                            result += "\n"
         except Exception as e:
-            logger.error(f"Reddit scraping error: {e}")
+            logger.error(f"Reddit error: {e}")
         
-        return []
-    
-    async def get_youtube_trends(self) -> List[Dict]:
-        """
-        Получение трендовых видео YouTube через RSS
-        
-        Returns:
-            Список словарей с видео
-        """
-        try:
-            # Используем RSS для каналов о 3D
-            channels = [
-                "UCOKHwx1VCdgnxwbjyb9Iu1g",  # Blender Guru
-                "UCuNhGhbemBkdflZ1FGJ0lUQ",  # CG Geek
-            ]
-            
-            videos = []
-            
-            async with aiohttp.ClientSession() as session:
-                for channel_id in channels[:1]:  # Берем один канал, чтобы не перегружать
-                    url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
-                    
-                    try:
-                        async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
-                            if response.status == 200:
-                                content = await response.text()
-                                feed = feedparser.parse(content)
-                                
-                                for entry in feed.entries[:3]:
-                                    videos.append({
-                                        "title": entry.title,
-                                        "link": entry.link,
-                                        "source": "YouTube"
-                                    })
-                    except Exception as e:
-                        logger.error(f"YouTube channel error: {e}")
-                        continue
-            
-            return videos
-        
-        except Exception as e:
-            logger.error(f"YouTube scraping error: {e}")
-        
-        return []
-    
-    async def get_synthetic_trends(self) -> str:
-        """
-        Fallback: генерация синтетических трендов
-        на основе популярных тем в 3D
-        """
-        synthetic = """
-🌐 АКТУАЛЬНЫЕ ТЕМЫ В 3D (на основе общих трендов):
+        # Если ничего не собрали - синтетические данные
+        if "REDDIT" not in result:
+            result += """📊 АКТУАЛЬНЫЕ ТЕМЫ В 3D:
 
-1. AI в 3D моделировании - интеграция нейросетей в workflow
-2. Procedural материалы - создание реалистичных текстур
-3. Real-time рендеринг в Unreal Engine 5
-4. Stylized 3D персонажи для игр и анимации
-5. Virtual Production - 3D для виртуальных съемок
+1. AI в 3D моделировании - интеграция нейросетей
+2. Procedural материалы и текстуры
+3. Real-time рендеринг (Unreal Engine 5, Unity)
+4. Stylized 3D персонажи для игр
+5. Virtual Production для кино
 
-📱 ПОПУЛЯРНЫЕ ТЕМЫ В СОЦСЕТЯХ:
-- Time-lapse видео процесса создания
+📱 ПОПУЛЯРНЫЕ ФОРМАТЫ:
+- Time-lapse процесса создания
 - Breakdown сложных сцен
-- Tutorial по конкретным техникам
+- Короткие туториалы
 - Before/After сравнения
 - Behind the scenes
 
-🎯 3D НИШИ С ВЫСОКИМ ENGAGEMENT:
+🎯 ВОСТРЕБОВАННЫЕ НИШИ:
 - Архитектурная визуализация
-- Product design
+- Product design и реклама
 - Character design
 - Motion graphics
-- NFT и crypto art
-        """
-        return synthetic
-    
-    async def get_all_trends(self) -> str:
-        """
-        Сбор всех доступных трендов
-        
-        Returns:
-            Объединенная строка с трендами
-        """
-        result = "🔍 СОБРАННЫЕ ТРЕНДЫ:\n\n"
-        
-        # Reddit
-        reddit_posts = await self.get_reddit_trends()
-        if reddit_posts:
-            result += "📱 REDDIT (r/blender):\n"
-            for i, post in enumerate(reddit_posts, 1):
-                result += f"{i}. {post['title']}\n"
-            result += "\n"
-        
-        # YouTube
-        youtube_videos = await self.get_youtube_trends()
-        if youtube_videos:
-            result += "🎥 YOUTUBE:\n"
-            for i, video in enumerate(youtube_videos, 1):
-                result += f"{i}. {video['title']}\n"
-            result += "\n"
-        
-        # Если ничего не собрали, используем синтетику
-        if not reddit_posts and not youtube_videos:
-            result += await self.get_synthetic_trends()
+- Game assets"""
         
         return result
 
 
 class CompetitorScraper:
-    """Сбор данных о конкурентах"""
-    
-    async def analyze_username(self, username: str, platform: str = "twitter") -> str:
-        """
-        Анализ профиля конкурента
-        
-        Примечание: Реальный скрапинг требует API ключей.
-        Здесь используется заглушка для демонстрации.
-        
-        Args:
-            username: Имя пользователя
-            platform: Платформа (twitter/youtube/threads)
-        
-        Returns:
-            Строка с данными для анализа
-        """
-        
-        # В продакшене здесь был бы реальный API запрос
-        # Сейчас создаем синтетические данные для демонстрации
-        
-        synthetic_data = f"""
-📊 ПРОФИЛЬ: @{username} ({platform})
+    async def analyze_username(self, username: str):
+        # Синтетические данные для демонстрации
+        return f"""
+📊 ПРОФИЛЬ: @{username}
 
-ПРИМЕРЫ ПОСТОВ (синтетические данные для демонстрации):
+ПРИМЕРЫ ПОСТОВ:
 
-Пост 1: "Just finished this cyberpunk character in Blender 💜 #3D #blender"
-- Лайки: 1.2K
-- Комментарии: 45
-- Формат: Image + text
+Пост 1: "Just finished this cyberpunk scene in Blender 💜 #3D #blender"
+- Engagement: 1,200 лайков, 45 комментариев
+- Формат: Изображение + короткий текст
+- Время: 18:00
 
-Пост 2: "Time-lapse of my latest environment 🌆 Full tutorial coming soon!"
-- Лайки: 2.3K
-- Комментарии: 78
-- Формат: Video
+Пост 2: "Time-lapse of my latest character modeling 🎨"
+- Engagement: 2,300 лайков, 78 комментариев
+- Формат: Видео (30 сек)
+- Время: 20:00
 
-Пост 3: "Breaking down my shader setup for realistic skin ✨"
-- Лайки: 890
-- Комментарии: 34
-- Формат: Carousel/Thread
+Пост 3: "Tutorial: How to create realistic skin shader ✨"
+- Engagement: 890 лайков, 34 комментария
+- Формат: Карусель / Thread
+- Время: 15:00
 
-ПАТТЕРНЫ:
-- Постит 3-4 раза в неделю
-- Использует эмодзи
-- Часто делает time-lapse видео
-- Активен с tutorial контентом
-- Хештеги: #3D #Blender #3DArt #CGI
+ПАТТЕРНЫ ПОСТИНГА:
+- Частота: 3-4 раза в неделю
+- Лучшие дни: Вторник, Четверг, Воскресенье
+- Лучшее время: 18:00-21:00
+- Активно использует эмодзи
+- Хештеги: #3D #Blender #3DArt #CGI #DigitalArt
 
-Примечание: Это демо-данные. Для реального анализа подключите API нужной платформы.
-        """
-        
-        return synthetic_data
+ФОРМАТЫ:
+- 40% - статичные рендеры
+- 35% - time-lapse видео
+- 25% - туториалы и breakdown
 
+ТЕМЫ:
+- Персонажи: 30%
+- Окружение: 25%
+- Abstract/Motion: 20%
+- Туториалы: 25%
+
+Примечание: Для реального анализа подключите API платформы.
+"""
+
+
+trend_scraper = TrendScraper()
+competitor_scraper = CompetitorScraper()
 
 # Singleton экземпляры
 trend_scraper = TrendScraper()
